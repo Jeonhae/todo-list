@@ -9,13 +9,51 @@ from .task_model import TaskTableModel
 from .. import models, repository
 from .dialogs import TaskDialog
 
+# Simple translation mapping for UI strings
+_TRANSLATIONS = {
+    "zh": {
+        "title": "待办事项",
+        "add": "添加",
+        "edit": "编辑",
+        "delete": "删除",
+        "pin_tooltip": "置顶：保持窗口在其他窗口之上",
+        "font_tooltip": "界面文字大小",
+        "lang_btn": "中文",
+        "select_task": "请先选择一个任务。",
+        "not_found": "未找到该任务。",
+        "confirm_delete": "确认删除所选任务？",
+        "delete_title": "删除",
+        "status_fmt": "总任务: {total} | 未完成: {pending} | 已完成: {completed}",
+        "done": "已完成",
+        "pending": "未完成",
+    },
+    "en": {
+        "title": "Todo List",
+        "add": "Add",
+        "edit": "Edit",
+        "delete": "Delete",
+        "pin_tooltip": "Always on top: keep window above others",
+        "font_tooltip": "UI font size",
+        "lang_btn": "EN",
+        "select_task": "Please select a task first.",
+        "not_found": "Task not found.",
+        "confirm_delete": "Confirm delete selected task?",
+        "delete_title": "Delete",
+        "status_fmt": "Total: {total} | Pending: {pending} | Completed: {completed}",
+        "done": "Done",
+        "pending": "Pending",
+    },
+}
+
 
 class MainWindow(QMainWindow):
     def __init__(self, db_path: str = "todo_desktop.db"):
         super().__init__()
         self.db_path = db_path
         models.init_db(self.db_path)
-        self.setWindowTitle("待办事项")
+        # language state: 'zh' or 'en'
+        self.lang = "zh"
+        self.setWindowTitle(self._tr("title"))
         self.resize(600, 400)
         # 初始化计数
         self.total_count = 0
@@ -30,13 +68,17 @@ class MainWindow(QMainWindow):
         self.add_btn = QPushButton("添加")
         self.edit_btn = QPushButton("编辑")
         self.del_btn = QPushButton("删除")
+        # use translated labels
+        self.add_btn.setText(self._tr("add"))
+        self.edit_btn.setText(self._tr("edit"))
+        self.del_btn.setText(self._tr("delete"))
         ctrl_layout.addWidget(self.add_btn)
         ctrl_layout.addWidget(self.edit_btn)
         ctrl_layout.addWidget(self.del_btn)
         # 图钉按钮：切换窗口置顶
         self.pin_btn = QPushButton("📌")
         self.pin_btn.setCheckable(True)
-        self.pin_btn.setToolTip("置顶：保持窗口在其他窗口之上")
+        self.pin_btn.setToolTip(self._tr("pin_tooltip"))
         self.pin_btn.setFlat(True)
         self.pin_btn.setFixedWidth(28)
         # 样式：未选中为灰色，选中时高亮（黄色），并带轻微背景
@@ -56,11 +98,17 @@ class MainWindow(QMainWindow):
         self.font_spin.setRange(8, 30)
         self.font_spin.setValue(default_size)
         self.font_spin.setSuffix(" pt")
-        self.font_spin.setToolTip("界面文字大小")
+        self.font_spin.setToolTip(self._tr("font_tooltip"))
         self.font_spin.setFixedWidth(84)
         self.font_spin.valueChanged.connect(self._on_font_size_changed)
-
+        # language toggle button placed to the left of font size control
         ctrl_layout.addStretch()
+        self.lang_btn = QPushButton(self._tr("lang_btn"))
+        self.lang_btn.setFixedWidth(64)
+        self.lang_btn.setFlat(True)
+        self.lang_btn.setToolTip("切换语言 / Switch language")
+        self.lang_btn.clicked.connect(self._toggle_language)
+        ctrl_layout.addWidget(self.lang_btn)
         ctrl_layout.addWidget(self.font_spin)
         ctrl_layout.addWidget(self.pin_btn)
         layout.addLayout(ctrl_layout)
@@ -68,6 +116,11 @@ class MainWindow(QMainWindow):
         # 任务表格（使用 model/view 以提高大量行时的性能）
         self.table = QTableView()
         self.model = TaskTableModel([])
+        # ensure model uses current language for headers/status
+        try:
+            self.model.set_language(self.lang)
+        except Exception:
+            pass
         self.table.setModel(self.model)
         # 使用可交互的列宽（用户/程序可调整），并在内容超出时显示水平滚动条
         hh = self.table.horizontalHeader()
@@ -157,7 +210,12 @@ class MainWindow(QMainWindow):
         self.total_count = len(rows)
         self.pending_count = len([r for r in rows if not r.get("done")])
         self.completed_count = len([r for r in rows if r.get("done")])
-        self.status.setText(f"总任务: {self.total_count} | 未完成: {self.pending_count} | 已完成: {self.completed_count}")
+        try:
+            self.status.setText(self._tr("status_fmt").format(
+                total=self.total_count, pending=self.pending_count, completed=self.completed_count
+            ))
+        except Exception:
+            self.status.setText(f"Total: {self.total_count}")
         try:
             self.table.viewport().update()
         except Exception:
@@ -188,11 +246,11 @@ class MainWindow(QMainWindow):
     def on_edit(self, _=None):
         tid = self.selected_task_id()
         if not tid:
-            QMessageBox.information(self, "编辑", "请先选择一个任务。")
+            QMessageBox.information(self, self._tr("edit"), self._tr("select_task"))
             return
         t = repository.get_task(tid)
         if not t:
-            QMessageBox.warning(self, "编辑", "未找到该任务。")
+            QMessageBox.warning(self, self._tr("edit"), self._tr("not_found"))
             self.refresh()
             return
         dlg = TaskDialog(self, task=t)
@@ -225,14 +283,14 @@ class MainWindow(QMainWindow):
     def on_delete(self):
         tid = self.selected_task_id()
         if not tid:
-            QMessageBox.information(self, "删除", "请先选择一个任务。")
+            QMessageBox.information(self, self._tr("delete"), self._tr("select_task"))
             return
         t = repository.get_task(tid)
         if not t:
-            QMessageBox.warning(self, "删除", "未找到该任务。")
+            QMessageBox.warning(self, self._tr("delete"), self._tr("not_found"))
             self.refresh()
             return
-        if QMessageBox.question(self, "删除", "确认删除所选任务？") != QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, self._tr("delete"), self._tr("confirm_delete")) != QMessageBox.StandardButton.Yes:
             return
         repository.delete_task(tid)
         # 增量更新计数
@@ -257,6 +315,36 @@ class MainWindow(QMainWindow):
                 self.del_btn.setEnabled(False)
             except Exception:
                 pass
+
+    def _tr(self, key: str) -> str:
+        try:
+            return _TRANSLATIONS.get(self.lang, {}).get(key, key)
+        except Exception:
+            return key
+
+    def _toggle_language(self):
+        try:
+            self.lang = "en" if self.lang == "zh" else "zh"
+            # update model and UI texts
+            try:
+                self.model.set_language(self.lang)
+            except Exception:
+                pass
+            # update various widgets
+            try:
+                self.setWindowTitle(self._tr("title"))
+                self.add_btn.setText(self._tr("add"))
+                self.edit_btn.setText(self._tr("edit"))
+                self.del_btn.setText(self._tr("delete"))
+                self.pin_btn.setToolTip(self._tr("pin_tooltip"))
+                self.font_spin.setToolTip(self._tr("font_tooltip"))
+                self.lang_btn.setText(self._tr("lang_btn"))
+                # refresh status and table
+                self.refresh()
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def _on_font_size_changed(self, size: int):
         """调整应用字体大小（以 point 为单位）并立即生效。"""

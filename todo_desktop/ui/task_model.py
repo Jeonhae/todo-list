@@ -4,12 +4,27 @@ from PySide6.QtGui import QFont
 
 
 class TaskTableModel(QAbstractTableModel):
+    # default language is Chinese; MainWindow may call set_language to change
     HEADERS = ["任务", "状态", "优先级", "截止日"]
+
+    _LOCALE = {
+        "zh": {
+            "HEADERS": ["任务", "状态", "优先级", "截止日"],
+            "DONE": "已完成",
+            "TODO": "未完成",
+        },
+        "en": {
+            "HEADERS": ["Task", "Status", "Priority", "Due"],
+            "DONE": "Done",
+            "TODO": "Pending",
+        },
+    }
 
     def __init__(self, rows: Optional[List[Dict[str, Any]]] = None, title_font: Optional[QFont] = None, parent=None):
         super().__init__(parent)
         self._rows = rows or []
         self._title_font = title_font or QFont()
+        self._lang = "zh"
 
     def rowCount(self, parent=QModelIndex()):
         return len(self._rows)
@@ -27,7 +42,7 @@ class TaskTableModel(QAbstractTableModel):
             if c == 0:
                 return row.get("title", "")
             if c == 1:
-                return "已完成" if row.get("done") else "未完成"
+                return self._LOCALE[self._lang]["DONE"] if row.get("done") else self._LOCALE[self._lang]["TODO"]
             if c == 2:
                 return str(row.get("priority", 0))
             if c == 3:
@@ -49,6 +64,24 @@ class TaskTableModel(QAbstractTableModel):
             if 0 <= section < len(self.HEADERS):
                 return self.HEADERS[section]
         return None
+
+    def set_language(self, lang: str):
+        """Set language for headers and status text. Emits headerDataChanged."""
+        if lang not in self._LOCALE:
+            return
+        self._lang = lang
+        self.HEADERS = self._LOCALE[lang]["HEADERS"]
+        try:
+            # notify views that headers changed
+            self.headerDataChanged.emit(Qt.Horizontal, 0, len(self.HEADERS) - 1)
+        except Exception:
+            pass
+
+    def get_done_text(self):
+        return self._LOCALE[self._lang]["DONE"]
+
+    def get_todo_text(self):
+        return self._LOCALE[self._lang]["TODO"]
 
     def set_rows(self, rows: List[Dict[str, Any]]):
         self.beginResetModel()
