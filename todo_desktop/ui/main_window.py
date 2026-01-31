@@ -353,6 +353,32 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+    def _apply_app_icon(self):
+        """Look for an icon file named `icon_desktop` with common extensions under assets/images
+        and set it as the application/window icon."""
+        try:
+            # project root: two parents above this file (todo_desktop/ui -> todo_desktop -> project root)
+            project_root = Path(__file__).resolve().parents[2]
+            icons_dir = project_root / "assets" / "images"
+            if not icons_dir.exists():
+                return
+            for ext in ("png", "ico", "svg", "icns"):
+                p = icons_dir / f"icon_desktop.{ext}"
+                if p.exists():
+                    ico = QIcon(str(p))
+                    try:
+                        self.setWindowIcon(ico)
+                    except Exception:
+                        pass
+                    try:
+                        # Also set application-level icon
+                        QApplication.setWindowIcon(ico)
+                    except Exception:
+                        pass
+                    return
+        except Exception:
+            pass
+
     def _on_font_size_changed(self, size: int):
         """调整应用字体大小（以 point 为单位）并立即生效。"""
         # 仅将字号应用到任务表格，不影响其它界面元素
