@@ -3,7 +3,9 @@
     QTableView, QPushButton, QLabel, QMessageBox, QHeaderView, QAbstractItemView, QToolTip, QSpinBox
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QCursor, QFont, QFontMetrics
+from PySide6.QtGui import QCursor, QFont, QFontMetrics, QIcon
+import os
+from pathlib import Path
 from .task_model import TaskTableModel
 
 from .. import models, repository
@@ -54,6 +56,11 @@ class MainWindow(QMainWindow):
         # language state: 'zh' or 'en'
         self.lang = "zh"
         self.setWindowTitle(self._tr("title"))
+        # apply application/window icon from assets/images/icon_desktop.* if present
+        try:
+            self._apply_app_icon()
+        except Exception:
+            pass
         self.resize(600, 400)
         # 初始化计数
         self.total_count = 0
