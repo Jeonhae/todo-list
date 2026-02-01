@@ -2,6 +2,8 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from .models import Task, SessionLocal
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 # Simple in-memory cache for list_tasks(show_all=True)
 _tasks_cache: Optional[List[Task]] = None
@@ -18,7 +20,7 @@ def get_session() -> Session:
 def add_task(title: str, notes: Optional[str] = None, priority: int = 0, due_date=None, db_path: str = None) -> int:
     s = get_session()
     try:
-        t = Task(title=title, notes=notes, priority=priority, due_date=due_date, created_at=datetime.now(timezone.utc))
+        t = Task(title=title, notes=notes, priority=priority, due_date=due_date, created_at=datetime.now(timezone.utc), elapsed_seconds=0)
         s.add(t)
         s.commit()
         s.refresh(t)
@@ -36,7 +38,23 @@ def list_tasks(show_all: bool = True) -> List[Task]:
             global _tasks_cache
             if _tasks_cache is not None:
                 return _tasks_cache
-            res = s.query(Task).order_by(Task.done.asc(), Task.priority.desc(), Task.created_at.asc()).all()
+            try:
+                res = s.query(Task).order_by(Task.done.asc(), Task.priority.desc(), Task.created_at.asc()).all()
+            except Exception as e:
+                # If DB missing the new column, attempt to add it and retry once
+                try:
+                    msg = str(e).lower()
+                    if 'no such column' in msg and 'elapsed_seconds' in msg:
+                        try:
+                            s.execute(text('ALTER TABLE tasks ADD COLUMN elapsed_seconds INTEGER DEFAULT 0 NOT NULL'))
+                            s.commit()
+                        except Exception:
+                            pass
+                        res = s.query(Task).order_by(Task.done.asc(), Task.priority.desc(), Task.created_at.asc()).all()
+                    else:
+                        raise
+                except Exception:
+                    raise
             _tasks_cache = res
             return res
         return s.query(Task).filter(Task.done.is_(False)).order_by(Task.priority.desc(), Task.created_at.asc()).all()

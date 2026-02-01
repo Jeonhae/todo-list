@@ -5,16 +5,16 @@ from PySide6.QtGui import QFont
 
 class TaskTableModel(QAbstractTableModel):
     # default language is Chinese; MainWindow may call set_language to change
-    HEADERS = ["任务", "状态", "优先级", "截止日"]
+    HEADERS = ["任务", "状态", "优先级", "截止日", "用时"]
 
     _LOCALE = {
         "zh": {
-            "HEADERS": ["任务", "状态", "优先级", "截止日"],
+            "HEADERS": ["任务", "状态", "优先级", "截止日", "用时"],
             "DONE": "已完成",
             "TODO": "未完成",
         },
         "en": {
-            "HEADERS": ["Task", "Status", "Priority", "Due"],
+            "HEADERS": ["Task", "Status", "Priority", "Due", "Elapsed"],
             "DONE": "Done",
             "TODO": "Pending",
         },
@@ -48,9 +48,20 @@ class TaskTableModel(QAbstractTableModel):
             if c == 3:
                 dd = row.get("due_date")
                 return dd.strftime('%Y-%m-%d') if dd else ""
+            if c == 4:
+                # elapsed seconds -> HH:MM:SS
+                secs = row.get("elapsed_seconds", 0) or 0
+                try:
+                    secs = int(secs)
+                except Exception:
+                    secs = 0
+                h = secs // 3600
+                m = (secs % 3600) // 60
+                s = secs % 60
+                return f"{h:02d}:{m:02d}:{s:02d}"
         if role == Qt.TextAlignmentRole:
-            # center-align status, priority and due-date columns
-            if c in (1, 2, 3):
+            # center-align status, priority, due-date and elapsed columns
+            if c in (1, 2, 3, 4):
                 return Qt.AlignCenter
         if role == Qt.ToolTipRole:
             notes = row.get("notes")
