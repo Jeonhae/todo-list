@@ -1507,7 +1507,6 @@ class MainWindow(QMainWindow):
             pass
         # handle events from central widget and its children to support resizing
         try:
-            cw = getattr(self, 'centralWidget', None)
             cwidget = None
             try:
                 cwidget = self.centralWidget()
