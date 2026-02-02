@@ -2,9 +2,8 @@
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTableView, QPushButton, QLabel, QMessageBox, QHeaderView, QAbstractItemView, QToolTip, QSpinBox
 )
-from PySide6.QtCore import Qt, QTimer, QEvent, QPoint
+from PySide6.QtCore import Qt, QTimer, QEvent
 from PySide6.QtGui import QCursor, QFont, QFontMetrics, QIcon
-import os
 from pathlib import Path
 from .task_model import TaskTableModel
 from .pomodoro import PomodoroController

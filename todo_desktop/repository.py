@@ -3,7 +3,6 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from .models import Task, SessionLocal
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
 
 # Simple in-memory cache for list_tasks(show_all=True)
 _tasks_cache: Optional[List[Task]] = None
